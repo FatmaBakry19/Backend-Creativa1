@@ -1,52 +1,93 @@
+console.log("APP.JS IS RUNNING");
+
+const express = require("express");
 const fs = require("fs");
-const EventEmitter = require("events");
 
-const emitter = new EventEmitter();
+const app = express();
 
-let file1Content = "";
-let file2Content = "";
-let filesRead = 0;
+app.use(express.json());
 
-// Read file 1 asynchronously
-fs.readFile("file1.txt", "utf8", (err, data) => {
-    if (err) {
-        console.error("Error reading file1.txt:", err);
-        return;
-    }
+const filePath = "./notes.json";
 
-    file1Content = data;
-    filesRead++;
+// GET
+app.get("/notes", (req, res) => {
+    const data = fs.readFileSync(filePath, "utf8");
+    const notes = JSON.parse(data);
 
-    if (filesRead === 2) {
-        emitter.emit("filesReady");
-    }
+    res.json(notes);
 });
 
-// Read file 2 asynchronously
-fs.readFile("file2.txt", "utf8", (err, data) => {
-    if (err) {
-        console.error("Error reading file2.txt:", err);
-        return;
-    }
+// POST
+app.post("/notes", (req, res) => {
+    const data = fs.readFileSync(filePath, "utf8");
+    const notes = JSON.parse(data);
 
-    file2Content = data;
-    filesRead++;
+    const newNote = {
+        id: notes.length + 1,
+        title: req.body.title,
+        content: req.body.content
+    };
 
-    if (filesRead === 2) {
-        emitter.emit("filesReady");
-    }
-});
+    notes.push(newNote);
 
-// Event Emitter
-emitter.on("filesReady", () => {
-    const mergedContent = file1Content + "\n" + file2Content;
+    fs.writeFileSync(filePath, JSON.stringify(notes, null, 2));
 
-    fs.writeFile("merged.txt", mergedContent, "utf8", (err) => {
-        if (err) {
-            console.error("Error writing merged.txt:", err);
-            return;
-        }
-
-        console.log("Files merged successfully!");
+    res.status(201).json({
+        message: "Note added successfully",
+        note: newNote
     });
+});
+
+// PUT
+app.put("/notes/:id", (req, res) => {
+    const data = fs.readFileSync(filePath, "utf8");
+    const notes = JSON.parse(data);
+
+    const id = parseInt(req.params.id);
+
+    const note = notes.find(note => note.id === id);
+
+    if (!note) {
+        return res.status(404).json({
+            message: "Note not found"
+        });
+    }
+
+    note.title = req.body.title;
+    note.content = req.body.content;
+
+    fs.writeFileSync(filePath, JSON.stringify(notes, null, 2));
+
+    res.json({
+        message: "Note updated successfully",
+        note: note
+    });
+});
+
+// DELETE
+app.delete("/notes/:id", (req, res) => {
+    const data = fs.readFileSync(filePath, "utf8");
+    const notes = JSON.parse(data);
+
+    const id = parseInt(req.params.id);
+
+    const noteExists = notes.some(note => note.id === id);
+
+    if (!noteExists) {
+        return res.status(404).json({
+            message: "Note not found"
+        });
+    }
+
+    const updatedNotes = notes.filter(note => note.id !== id);
+
+    fs.writeFileSync(filePath, JSON.stringify(updatedNotes, null, 2));
+
+    res.json({
+        message: "Note deleted successfully"
+    });
+});
+
+app.listen(3000, () => {
+    console.log("Server running on http://localhost:3000");
 });
