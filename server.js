@@ -1,11 +1,15 @@
 const express = require("express");
-
 const pool = require("./db");
 
 const app = express();
 
+console.log("THIS IS MY SERVER FILE");
+
 app.use(express.json());
-app.get("/test", async (req, res) => {
+
+
+// GET ALL NOTES
+app.get("/notes", async (req, res) => {
     try {
         const result = await pool.query("SELECT * FROM notes");
 
@@ -15,56 +19,83 @@ app.get("/test", async (req, res) => {
         res.status(500).send("Database error");
     }
 });
+
+
+// CREATE NOTE
 app.post("/notes", async (req, res) => {
     try {
+        const { title, content } = req.body;
+
         const result = await pool.query(
             "INSERT INTO notes (title, content) VALUES ($1, $2) RETURNING *",
-            [req.body.title, req.body.content]
+            [title, content]
         );
 
         res.json(result.rows[0]);
     } catch (error) {
         console.log(error);
-        res.status(500).send("Error saving note");
+        res.status(500).send("Database error");
     }
 });
+
+
+// UPDATE NOTE
 app.put("/notes/:id", async (req, res) => {
     try {
+        const { id } = req.params;
+        const { title, content } = req.body;
+
         const result = await pool.query(
             "UPDATE notes SET title = $1, content = $2 WHERE id = $3 RETURNING *",
-            [req.body.title, req.body.content, req.params.id]
+            [title, content, id]
         );
-
-        if (result.rows.length === 0) {
-            return res.status(404).send("Note not found");
-        }
 
         res.json(result.rows[0]);
     } catch (error) {
         console.log(error);
-        res.status(500).send("Error updating note");
+        res.status(500).send("Database error");
     }
 });
- 
+
+
+// DELETE NOTE
 app.delete("/notes/:id", async (req, res) => {
     try {
+        const { id } = req.params;
+
         const result = await pool.query(
             "DELETE FROM notes WHERE id = $1 RETURNING *",
-            [req.params.id]
+            [id]
         );
 
-        if (result.rows.length === 0) {
-            return res.status(404).send("Note not found");
-        }
-
         res.json({
-            message: "Note deleted successfully"
+            message: "Note deleted successfully",
+            note: result.rows[0]
         });
     } catch (error) {
         console.log(error);
-        res.status(500).send("Error deleting note");
+        res.status(500).send("Database error");
     }
 });
+
+
+// SEARCH NOTES BY TITLE
+app.get("/notes/search", async (req, res) => {
+    try {
+        const { title } = req.query;
+
+        const result = await pool.query(
+            "SELECT * FROM notes WHERE title ILIKE $1",
+            [`%${title}%`]
+        );
+
+        res.json(result.rows);
+    } catch (error) {
+        console.log(error);
+        res.status(500).send("Database error");
+    }
+});
+
 
 app.listen(4000, () => {
     console.log("Server is running on port 4000");
